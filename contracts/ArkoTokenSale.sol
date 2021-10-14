@@ -26,7 +26,9 @@ contract ArkoTokenSale {
         
         //require that there are enough tokens
         require(_numberOfTokens <= tokenContract.balanceOf(address(this)));
+        
         //require that transfer is successful
+        require(tokenContract.transfer(msg.sender, _numberOfTokens));
 
         //Keep track of tokens sold
         tokensSold += _numberOfTokens;

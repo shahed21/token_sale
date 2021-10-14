@@ -28,15 +28,20 @@ contract ('ArkoTokenSale', function(accounts) {
 
     it('facilitates token buying', function() {
         return ArkoToken.deployed().then(function(instance) {
+            
             //grab tokenInstance first
             tokenInstance = instance;
             return ArkoTokenSale.deployed();
         }).then(function(instance) {
+            
             //then grab tokenSaleInstance
             tokenSaleInstance = instance;
+            
             //provision 75% of all tokens for token sale
             return tokenInstance.transfer(tokenSaleInstance.address, tokensAvailableForSale, {from: admin});
         }).then(function(receipt) {
+
+            //Try to make a valid purchase of tokens by buyer
             numberOfTokens = 10;
             return tokenSaleInstance.buyTokens(numberOfTokens, {from: buyer, value: numberOfTokens * tokenPrice});
         }).then(function(receipt) {
@@ -44,19 +49,28 @@ contract ('ArkoTokenSale', function(accounts) {
             assert.equal(receipt.logs[0].event, 'Sell', 'it is a "Sell" event');
             assert.equal(receipt.logs[0].args._buyer, buyer, 'event logs the buyer account');
             assert.equal(receipt.logs[0].args._amount, numberOfTokens, 'event logs the number of tokens sold');
+            
+            //check the number of tokens sold
             return tokenSaleInstance.tokensSold();
         }).then(function(amount) {
             assert.equal(amount.toNumber(), numberOfTokens, 'increments the number of tokens sold');
-        //     return tokenInstance.balanceOf(buyer);
-        // }).then(function(balance) {
-        //     assert.equal(balance.toNumber(), numberOfTokens, 'buyer balance matches tokens purchased');
-        //     return tokenInstance.balanceOf(tokenSaleInstance.address);
-        // }).then(function(balance) {
-        //     assert.equal(balance.toNumber(), tokensAvailableForSale-numberOfTokens, 'contract balance lost tokens purchased');
+
+            //check the number of tokens buyer has after sale
+            return tokenInstance.balanceOf(buyer);
+        }).then(function(balance) {
+            assert.equal(balance.toNumber(), numberOfTokens, 'buyer balance matches tokens purchased');
+
+            //check the number of tokens the contract has after sale
+            return tokenInstance.balanceOf(tokenSaleInstance.address);
+        }).then(function(balance) {
+            assert.equal(balance.toNumber(), tokensAvailableForSale-numberOfTokens, 'contract balance lost tokens purchased');
+
             //try to buy tokens different from the ether value
             return tokenSaleInstance.buyTokens(numberOfTokens, {from: buyer, value:  1});
         }).then(assert.fail).catch(function(error) {
             assert(error.message.toString().indexOf('revert')>=0, 'msg.value must equal number of wei');
+            
+            //Try to buy more tokens than available
             //numberOfTokens = 750000;
             numberOfTokens = 750001;
             return tokenSaleInstance.buyTokens(numberOfTokens, {from: buyer, value: numberOfTokens * tokenPrice});
