@@ -79,4 +79,57 @@ contract ('ArkoTokenSale', function(accounts) {
             //assert(error.message.toString().indexOf('revert')>=0, error.message.toString());
         });
     });
+
+    it('ends token sale', function() {
+        return ArkoToken.deployed().then(function(instance) {
+            
+            //grab tokenInstance first
+            tokenInstance = instance;
+            return ArkoTokenSale.deployed();
+        }).then(function(instance) {
+            
+            //then grab tokenSaleInstance
+            tokenSaleInstance = instance;
+
+            //store the admin ether balance
+            return web3.eth.getBalance(admin);
+        }).then(function(balance) {
+            adminEthBalance = parseInt(balance);
+            
+            //check if the contract has ether balance.  It should not be zero after some token sale
+            return web3.eth.getBalance(tokenSaleInstance.address);
+        }).then(function(balance) {
+            assert.notEqual(parseInt(balance), 0, 'contract should have ether proceeds');
+            //assert.notEqual(parseInt(balance), 0, balance);
+            //Store the ether balance in the contract
+            contractEthBalance = parseInt(balance);
+
+            //Try to end sale from account other than the admin
+            return tokenSaleInstance.endSale({from: buyer});
+        }).then(assert.fail).catch(function(error) {
+            assert(error.message.toString().indexOf('revert')>=0, error.message.toString());
+            //assert(error.message.toString().indexOf('revert')>=0, 'must be admin to end sale');
+
+            //check if the contract still has ether balance.  It should not be zero after failed end sale command
+            return web3.eth.getBalance(tokenSaleInstance.address);
+        }).then(function(balance) {
+            assert.notEqual(parseInt(balance), 0, 'contract should still have ether proceeds');
+            //assert.notEqual(parseInt(balance), 0, balance);
+
+            //end sale from admin
+            return tokenSaleInstance.endSale({from: admin});
+        }).then(function(receipt) {
+
+            //Check the balance of Arko Tokens in admin
+            return tokenInstance.balanceOf(admin);
+        }).then(function(balance) {
+            assert.equal(balance.toNumber(), 999990, 'returns all unsold Arko tokens to admin');
+
+            //check the balance of ether is zero for the contract
+            return web3.eth.getBalance(tokenSaleInstance.address);
+        }).then(function(balance) {
+            assert.equal(parseInt(balance), 0, 'contract has returned all ether proceeds to admin');
+            //assert.equal(parseInt(balance), 0, balance);
+        });
+    });
 });

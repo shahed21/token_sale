@@ -3,7 +3,7 @@ pragma solidity >=0.4.22 <0.9.0;
 import "./ArkoToken.sol";
 
 contract ArkoTokenSale {
-    address admin;
+    address payable admin;
     ArkoToken public tokenContract;
     uint256 public tokenPrice;
     uint256 public tokensSold;
@@ -35,6 +35,15 @@ contract ArkoTokenSale {
         
         //emit sell event
         emit Sell(msg.sender, _numberOfTokens);
+    }
+
+    function endSale() public {
+        require(msg.sender == admin);
+        require(tokenContract.transfer(admin, tokenContract.balanceOf(address(this))));
+
+        // Just transfer the balance to the admin
+        //payable(admin).transfer(address(this).balance);
+        admin.transfer(address(this).balance);
     }
 
     constructor (ArkoToken _tokenContract, uint256 _tokenPrice) public {
