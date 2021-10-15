@@ -11,6 +11,10 @@ contract ('ArkoTokenSale', function(accounts) {
     var tokenPrice = 1000000000000; //in wei
     var tokensAvailableForSale = 750000; // in Arko
 
+    //end sale variables
+    var adminWeiBalance, newAdminWeiBalance, contractWeiBalance, gasUsed, gasPrice;
+
+
     it('intializes the contract with the correct values', function() {
         return ArkoTokenSale.deployed().then(function(instance) {
             tokenSaleInstance = instance;
@@ -65,7 +69,7 @@ contract ('ArkoTokenSale', function(accounts) {
         }).then(function(balance) {
             assert.equal(balance.toNumber(), tokensAvailableForSale-numberOfTokens, 'contract balance lost tokens purchased');
 
-            //try to buy tokens different from the ether value
+            //try to buy tokens different from the wei value
             return tokenSaleInstance.buyTokens(numberOfTokens, {from: buyer, value:  1});
         }).then(assert.fail).catch(function(error) {
             assert(error.message.toString().indexOf('revert')>=0, 'msg.value must equal number of wei');
@@ -91,45 +95,54 @@ contract ('ArkoTokenSale', function(accounts) {
             //then grab tokenSaleInstance
             tokenSaleInstance = instance;
 
-            //store the admin ether balance
+            //store the admin wei balance
             return web3.eth.getBalance(admin);
         }).then(function(balance) {
-            adminEthBalance = parseInt(balance);
+            adminWeiBalance = parseInt(balance);
             
-            //check if the contract has ether balance.  It should not be zero after some token sale
+            //check if the contract has wei balance.  It should not be zero after some token sale
             return web3.eth.getBalance(tokenSaleInstance.address);
         }).then(function(balance) {
-            assert.notEqual(parseInt(balance), 0, 'contract should have ether proceeds');
-            //assert.notEqual(parseInt(balance), 0, balance);
-            //Store the ether balance in the contract
-            contractEthBalance = parseInt(balance);
+            assert.notEqual(parseInt(balance), 0, 'contract should have wei proceeds');
+            
+            //Store the wei balance in the contract
+            contractWeiBalance = parseInt(balance);
+            gasPrice = 10e10;
 
             //Try to end sale from account other than the admin
-            return tokenSaleInstance.endSale({from: buyer});
+            return tokenSaleInstance.endSale({from: buyer, gasPrice: gasPrice});
         }).then(assert.fail).catch(function(error) {
-            assert(error.message.toString().indexOf('revert')>=0, error.message.toString());
-            //assert(error.message.toString().indexOf('revert')>=0, 'must be admin to end sale');
+            assert(error.message.toString().indexOf('revert')>=0, 'must be admin to end sale');
 
-            //check if the contract still has ether balance.  It should not be zero after failed end sale command
+            //check if the contract still has wei balance.  It should not be zero after failed end sale command
             return web3.eth.getBalance(tokenSaleInstance.address);
         }).then(function(balance) {
-            assert.notEqual(parseInt(balance), 0, 'contract should still have ether proceeds');
-            //assert.notEqual(parseInt(balance), 0, balance);
+            assert.notEqual(parseInt(balance), 0, 'contract should still have wei proceeds');
 
             //end sale from admin
-            return tokenSaleInstance.endSale({from: admin});
+            return tokenSaleInstance.endSale({from: admin, gasPrice: gasPrice});
         }).then(function(receipt) {
+            //Get the Gas Usage from the receipt
+            cumulativeGasUsed = receipt.receipt.cumulativeGasUsed;
+            gasUsed = receipt.receipt.gasUsed;
+
+            //store the new admin wei balance
+            return web3.eth.getBalance(admin);
+        }).then(function(balance) {
+            newAdminWeiBalance = parseInt(balance);
+            assert.equal(newAdminWeiBalance>(adminWeiBalance - gasPrice * cumulativeGasUsed), true, 'wei has been transfered to the admin account');
+            //The following would have been better, but javascript can not handle large interger calculations
+            //assert.equal(newAdminWeiBalance-(adminWeiBalance-(gasPrice * cumulativeGasUsed))-contractWeiBalance, 0, newAdminWeiBalance + ' - ('+ adminWeiBalance + ' - ' + gasPrice + '*' + cumulativeGasUsed + ') - ' + contractWeiBalance);
 
             //Check the balance of Arko Tokens in admin
             return tokenInstance.balanceOf(admin);
         }).then(function(balance) {
             assert.equal(balance.toNumber(), 999990, 'returns all unsold Arko tokens to admin');
 
-            //check the balance of ether is zero for the contract
+            //check the balance of wei is zero for the contract
             return web3.eth.getBalance(tokenSaleInstance.address);
         }).then(function(balance) {
-            assert.equal(parseInt(balance), 0, 'contract has returned all ether proceeds to admin');
-            //assert.equal(parseInt(balance), 0, balance);
+            assert.equal(parseInt(balance), 0, 'contract has returned all wei proceeds to admin');
         });
     });
 });
